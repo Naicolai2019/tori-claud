@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tori Claud - Control Panel</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        header {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+
+        header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .status-bar {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+
+        .status-item {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .status-item .value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+
+        .status-item .label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .card {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            margin-bottom: 20px;
+            color: #333;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .devices-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .device-card {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            border-left: 4px solid #f0f0f0;
+            transition: all 0.3s ease;
+        }
+
+        .device-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(0, 0, 0, 0.12);
+        }
+
+        .device-card.connected {
+            border-left-color: #4caf50;
+        }
+
+        .device-card.disconnected {
+            border-left-color: #f44336;
+            opacity: 0.6;
+        }
+
+        .device-card h3 {
+            margin-bottom: 12px;
+            color: #333;
+        }
+
+        .device-info {
+            font-size: 0.9rem;
+            color: #666;
+            margin: 8px 0;
+            word-break: break-all;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+
+        .status-badge.online {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+
+        .status-badge.offline {
+            background: #ffebee;
+            color: #c62828;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        textarea,
+        input {
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.95rem;
+            transition: border-color 0.3s ease;
+        }
+
+        textarea:focus,
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        textarea {
+            width: 100%;
+            min-height: 120px;
+            resize: vertical;
+        }
+
+        button {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+            font-size: 1rem;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        .data-display {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+            font-family: 'Courier New', monospace;
+            max-height: 300px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+        }
+
+        .log-entry {
+            padding: 8px;
+            border-bottom: 1px solid #eee;
+            font-size: 0.85rem;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        .log-timestamp {
+            color: #999;
+            font-size: 0.8rem;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: #999;
+        }
+
+        .empty-state p {
+            margin: 10px 0;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .action-buttons button {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .success {
+            background: #4caf50 !important;
+        }
+
+        .danger {
+            background: #f44336 !important;
+        }
+
+        .info {
+            background: #2196f3 !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌐 Tori Claud - Centro de Control</h1>
+            <p>Sincronización en tiempo real entre iOS y PC</p>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="label">Dispositivos Conectados</div>
+                    <div class="value" id="deviceCount">0</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">IP del Servidor</div>
+                    <div class="value" style="font-size: 1rem;" id="serverIP">--</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">Estado del Servidor</div>
+                    <div class="value" id="serverStatus" style="color: #4caf50;">●</div>
+                </div>
+                <div class="status-item">
+                    <div class="label">Última Actualización</div>
+                    <div class="value" style="font-size: 0.9rem;" id="lastUpdate">--</div>
+                </div>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <!-- Panel de Dispositivos -->
+            <div class="card">
+                <h2>📱 Dispositivos Conectados</h2>
+                <div id="devicesContainer">
+                    <div class="empty-state">
+                        <p>Esperando conexiones...</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Panel de Control -->
+            <div class="card">
+                <h2>⚙️ Control y Envío de Datos</h2>
+
+                <div style="margin-bottom: 20px;">
+                    <label style="display: block; margin-bottom: 8px; color: #333; font-weight: bold;">
+                        📤 Datos a Enviar (JSON)
+                    </label>
+                    <textarea id="dataInput" placeholder='{"acción": "sync", "timestamp": "2025-06-07", "datos": "tu contenido aquí"}'></textarea>
+                </div>
+
+                <div class="action-buttons">
+                    <button onclick="sendToAll()" class="success">📢 Enviar a Todos</button>
+                    <button onclick="clearInput()" class="danger">🗑️ Limpiar</button>
+                    <button onclick="loadExample()" class="info">📋 Ejemplo</button>
+                </div>
+
+                <h3 style="margin-top: 25px; margin-bottom: 15px; color: #333;">📝 Registro de Actividad</h3>
+                <div class="data-display" id="logContainer">
+                    <div class="empty-state">
+                        <p>Sin actividad aún...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Sesiones -->
+        <div class="card">
+            <h2>💾 Datos de Sesiones</h2>
+            <div class="data-display" id="sessionContainer" style="max-height: 500px;">
+                <div class="empty-state">
+                    <p>No hay datos de sesión...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let activityLog = [];
+        const MAX_LOGS = 50;
+
+        // Conectar al servidor
+        const socket = io();
+
+        // ═══════════════════════════════════════════════════════════════
+        // EVENTOS DE SOCKET
+        // ═══════════════════════════════════════════════════════════════
+
+        socket.on('connect', () => {
+            addLog('✅', 'Conectado al servidor');
+            updateServerStatus();
+        });
+
+        socket.on('disconnect', () => {
+            addLog('❌', 'Desconectado del servidor');
+            document.getElementById('serverStatus').style.color = '#f44336';
+            document.getElementById('serverStatus').textContent = '●';
+        });
+
+        socket.on('devicesList', (data) => {
+            addLog('📋', `Dispositivos actualizados: ${data.count} conectados`);
+            renderDevices(data);
+            updateServerStatus();
+        });
+
+        socket.on('syncData', (data) => {
+            addLog('🔄', `Sync recibido de ${data.source}`);
+            updateSessions();
+        });
+
+        // ═══════════════════════════════════════════════════════════════
+        // FUNCIONES DE INTERFAZ
+        // ═══════════════════════════════════════════════════════════════
+
+        function updateServerStatus() {
+            fetch('/status')
+                .then(r => r.json())
+                .then(data => {
+                    document.getElementById('deviceCount').textContent = data.connectedCount;
+                    document.getElementById('serverIP').textContent = data.serverIP;
+                    document.getElementById('serverStatus').style.color = '#4caf50';
+                    document.getElementById('lastUpdate').textContent = new Date().toLocaleTimeString('es-ES');
+                })
+                .catch(e => addLog('⚠️', 'Error al obtener estado: ' + e.message));
+        }
+
+        function renderDevices(data) {
+            const container = document.getElementById('devicesContainer');
+
+            if (data.count === 0) {
+                container.innerHTML = '<div class="empty-state"><p>Esperando conexiones...</p></div>';
+                return;
+            }
+
+            container.innerHTML = data.devices.map(device => `
+                <div class="device-card connected">
+                    <h3>📱 ${device.deviceName || 'Dispositivo'}</h3>
+                    <div class="device-info">
+                        <strong>ID:</strong> ${device.id.substring(0, 8)}
+                    </div>
+                    <div class="device-info">
+                        <strong>Tipo:</strong> ${device.deviceType || 'Desconocido'}
+                    </div>
+                    <div class="device-info">
+                        <strong>Conectado:</strong> ${new Date(device.connectedAt).toLocaleTimeString('es-ES')}
+                    </div>
+                    <div class="device-info">
+                        <strong>Última actividad:</strong> ${new Date(device.lastActivity).toLocaleTimeString('es-ES')}
+                    </div>
+                    <span class="status-badge online">● En línea</span>
+                </div>
+            `).join('');
+        }
+
+        function updateSessions() {
+            fetch('/sessions')
+                .then(r => r.json())
+                .then(data => {
+                    const container = document.getElementById('sessionContainer');
+                    if (data.count === 0) {
+                        container.innerHTML = '<div class="empty-state"><p>No hay datos de sesión...</p></div>';
+                        return;
+                    }
+                    container.innerHTML = `<pre>${JSON.stringify(data.sessions, null, 2)}</pre>`;
+                })
+                .catch(e => addLog('⚠️', 'Error al cargar sesiones: ' + e.message));
+        }
+
+        function sendToAll() {
+            const input = document.getElementById('dataInput');
+            const trimmed = input.value.trim();
+
+            if (!trimmed) {
+                alert('❌ Por favor ingresa datos JSON válidos');
+                return;
+            }
+
+            try {
+                const data = JSON.parse(trimmed);
+
+                fetch('/broadcast', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: data })
+                })
+                    .then(r => r.json())
+                    .then(result => {
+                        addLog('✅', `Datos enviados a ${result.recipients} dispositivos`);
+                        input.value = '';
+                    })
+                    .catch(e => addLog('❌', 'Error al enviar: ' + e.message));
+            } catch (e) {
+                alert('❌ JSON inválido: ' + e.message);
+            }
+        }
+
+        function clearInput() {
+            document.getElementById('dataInput').value = '';
+            addLog('🗑️', 'Campo limpiado');
+        }
+
+        function loadExample() {
+            const example = {
+                acción: "sincronizar",
+                timestamp: new Date().toISOString(),
+                datos: {
+                    sessionID: "user-123",
+                    appState: { vista: "home", scroll: 0 }
+                }
+            };
+            document.getElementById('dataInput').value = JSON.stringify(example, null, 2);
+            addLog('📋', 'Ejemplo cargado');
+        }
+
+        function addLog(emoji, message) {
+            const timestamp = new Date().toLocaleTimeString('es-ES');
+            activityLog.unshift({ emoji, message, timestamp });
+
+            if (activityLog.length > MAX_LOGS) {
+                activityLog.pop();
+            }
+
+            renderLogs();
+        }
+
+        function renderLogs() {
+            const container = document.getElementById('logContainer');
+
+            if (activityLog.length === 0) {
+                container.innerHTML = '<div class="empty-state"><p>Sin actividad aún...</p></div>';
+                return;
+            }
+
+            container.innerHTML = activityLog.map(log => `
+                <div class="log-entry">
+                    <span class="log-timestamp">[${log.timestamp}]</span>
+                    <span>${log.emoji}</span>
+                    <span>${log.message}</span>
+                </div>
+            `).join('');
+        }
+
+        // Actualizar estado cada 5 segundos
+        setInterval(updateServerStatus, 5000);
+
+        // Cargar sesiones cada 3 segundos
+        setInterval(updateSessions, 3000);
+
+        // Actualizar UI al cargar
+        updateServerStatus();
+        updateSessions();
+    </script>
+</body>
+</html>
